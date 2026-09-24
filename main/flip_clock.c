@@ -1,4 +1,4 @@
-// Retro split-flap clock cards.
+// Retro flip clock cards.
 //
 // Each card is split at a hinge. When a digit changes, the top half of the
 // old digit folds down towards the hinge (revealing the new top half behind

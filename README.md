@@ -1,6 +1,6 @@
 # T-Display Flip Clock
 
-An NTP-synchronised clock for the LilyGO T-Display (ESP32 with a 1.14" 135×240 ST7789 LCD). It connects to WiFi, gets the time from an NTP server and shows it as a retro split-flap clock with an animated flip whenever a digit changes.
+An NTP-synchronised clock for the LilyGO T-Display (ESP32 with a 1.14" 135×240 ST7789 LCD). It connects to WiFi, gets the time from an NTP server and shows it as a retro flip clock with an animated flip whenever a digit changes.
 
 ![Flip clock layouts: seconds on the hinge line (A) and bottom-aligned (B)](docs/seconds_alignment.png)
 
