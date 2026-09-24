@@ -9,6 +9,7 @@ typedef struct {
     int date_color;
     int brightness;  // backlight percent: 10, 25, 50, 75 or 100
     bool hour12;     // 12-hour clock with AM/PM, otherwise 24-hour
+    bool flipped;    // screen rotated 180 degrees
 } clock_settings_t;
 
 // Load saved settings, falling back to defaults for anything missing

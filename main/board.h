@@ -20,7 +20,7 @@
 #define BOARD_LCD_PCLK_HZ  (40 * 1000 * 1000)
 
 // Landscape, USB connector on the right. The 135x240 glass sits inside the
-// ST7789's 240x320 RAM, hence the gap.
+// ST7789's 240x320 RAM, hence the gap (see BOARD_LCD_RAM_*).
 #define DISPLAY_WIDTH      240
 #define DISPLAY_HEIGHT     135
 #define BOARD_LCD_X_GAP    40
@@ -86,3 +86,9 @@
 #else
 #error "Unsupported target: use `idf.py set-target esp32` (T-Display) or `idf.py set-target esp32s3` (T-Display-S3)"
 #endif
+
+// Both boards use an ST7789, whose RAM is 320x240 in landscape. Rotating the
+// screen 180 degrees moves the glass to the opposite side of the RAM, so the
+// gap becomes whatever is left over on that side.
+#define BOARD_LCD_RAM_WIDTH  320
+#define BOARD_LCD_RAM_HEIGHT 240

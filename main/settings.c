@@ -28,6 +28,7 @@ void settings_load(clock_settings_t *s)
         .date_color = palette_find("amber", 0),
         .brightness = 100,
         .hour12 = false,
+        .flipped = false,
     };
 
     nvs_handle_t nvs;
@@ -43,6 +44,9 @@ void settings_load(clock_settings_t *s)
     }
     if (nvs_get_u8(nvs, "hour12", &v) == ESP_OK) {
         s->hour12 = v;
+    }
+    if (nvs_get_u8(nvs, "flipped", &v) == ESP_OK) {
+        s->flipped = v;
     }
     nvs_close(nvs);
 }
@@ -60,6 +64,7 @@ void settings_save(const clock_settings_t *s)
     nvs_set_str(nvs, "date", palette_get(s->date_color)->id);
     nvs_set_u8(nvs, "brightness", s->brightness);
     nvs_set_u8(nvs, "hour12", s->hour12);
+    nvs_set_u8(nvs, "flipped", s->flipped);
     err = nvs_commit(nvs);
     nvs_close(nvs);
     if (err != ESP_OK) {

@@ -100,10 +100,11 @@ typedef enum {
     ITEM_DATE,
     ITEM_BRIGHTNESS,
     ITEM_CLOCK,
+    ITEM_SCREEN,
     NUM_ITEMS,
 } menu_item_t;
 
-static const char *item_names[NUM_ITEMS] = {"Digits", "Cards", "Date", "Brightness", "Clock"};
+static const char *item_names[NUM_ITEMS] = {"Digits", "Cards", "Date", "Brightness", "Clock", "Screen"};
 
 static bool s_menu_open;
 static menu_item_t s_menu_item;
@@ -119,6 +120,7 @@ static void apply_settings(void)
     };
     flip_clock_set_style(&style);
     display_set_brightness(s_settings.brightness);
+    display_set_flipped(s_settings.flipped);
 }
 
 static void step_color(int *index, int direction)
@@ -144,6 +146,9 @@ static void menu_step_value(int direction)
     case ITEM_CLOCK:
         s_settings.hour12 = !s_settings.hour12;
         break;
+    case ITEM_SCREEN:
+        s_settings.flipped = !s_settings.flipped;
+        break;
     default:
         break;
     }
@@ -167,6 +172,9 @@ static void menu_value_text(char *buf, size_t len)
         break;
     case ITEM_CLOCK:
         snprintf(buf, len, "%s", s_settings.hour12 ? "12 hour" : "24 hour");
+        break;
+    case ITEM_SCREEN:
+        snprintf(buf, len, "%s", s_settings.flipped ? "Flipped" : "Normal");
         break;
     default:
         buf[0] = '\0';

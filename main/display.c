@@ -198,8 +198,7 @@ void display_init(int brightness)
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel));
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(s_panel, true)); // IPS panel needs inversion
     ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(s_panel, true));      // landscape
-    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, BOARD_LCD_MIRROR_X, BOARD_LCD_MIRROR_Y));
-    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(s_panel, BOARD_LCD_X_GAP, BOARD_LCD_Y_GAP));
+    display_set_flipped(false);
 
     s_fb = framebuffer_alloc(io);
     assert(s_fb);
@@ -314,6 +313,18 @@ void display_set_brightness(int percent)
     ESP_ERROR_CHECK(ledc_set_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL, duty));
     ESP_ERROR_CHECK(ledc_update_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL));
 #endif
+}
+
+void display_set_flipped(bool flipped)
+{
+    if (flipped) {
+        ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, !BOARD_LCD_MIRROR_X, !BOARD_LCD_MIRROR_Y));
+        ESP_ERROR_CHECK(esp_lcd_panel_set_gap(s_panel, BOARD_LCD_RAM_WIDTH - DISPLAY_WIDTH - BOARD_LCD_X_GAP,
+                                              BOARD_LCD_RAM_HEIGHT - DISPLAY_HEIGHT - BOARD_LCD_Y_GAP));
+    } else {
+        ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, BOARD_LCD_MIRROR_X, BOARD_LCD_MIRROR_Y));
+        ESP_ERROR_CHECK(esp_lcd_panel_set_gap(s_panel, BOARD_LCD_X_GAP, BOARD_LCD_Y_GAP));
+    }
 }
 
 uint16_t *display_framebuffer(void)

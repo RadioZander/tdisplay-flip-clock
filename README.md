@@ -9,7 +9,7 @@ An NTP-synchronised clock for the LilyGO T-Display and T-Display-S3. It connects
 - Time from NTP (`pool.ntp.org` by default), re-synced every hour
 - Timezone with automatic daylight saving (UK time by default)
 - Flip cards with anti-aliased digits and a fold-down animation
-- On-device settings menu for the digit, card and date colours, brightness and 12/24-hour time. Settings are kept across power cycles
+- On-device settings menu for the digit, card and date colours, brightness, 12/24-hour time and screen rotation. Settings are kept across power cycles
 - WiFi status and timezone (GMT/BST) along the top, date underneath
 
 ## Hardware
@@ -24,7 +24,6 @@ The same code builds for either board. The board is chosen by the ESP-IDF target
 | LCD backlight | 4 (PWM) | 38 (AW9364, 16 levels) |
 | Button: MENU | 0 (also BOOT) | 0 (also BOOT) |
 | Button: CHANGE | 35 | 14 |
-| USB serial port | usually `/dev/ttyUSB0` | usually `/dev/ttyACM0` |
 
 On both boards, holding GPIO0 while the board resets puts it into download mode instead of starting the clock.
 
@@ -52,14 +51,14 @@ Requires ESP-IDF v6.1.
    ```
 5. Build, flash and watch the log (press Ctrl+] to exit the monitor):
    ```bash
-   idf.py -p /dev/ttyUSB0 flash monitor   # T-Display
-   idf.py -p /dev/ttyACM0 flash monitor   # T-Display-S3
+   idf.py flash monitor
    ```
+   `idf.py` finds the board's serial port by itself. If it picks the wrong one, add `-p` and the port name.
 
 `set-target` wipes the build and resets `sdkconfig`, so any menuconfig changes need redoing after you switch. If you use both boards, you can give each its own build folder and config instead, then switch without losing anything:
 
 ```bash
-idf.py -B build-s3 -D SDKCONFIG=build-s3/sdkconfig -D IDF_TARGET=esp32s3 -p /dev/ttyACM0 flash monitor
+idf.py -B build-s3 -D SDKCONFIG=build-s3/sdkconfig -D IDF_TARGET=esp32s3 flash monitor
 ```
 
 `sdkconfig` is generated for your board and isn't kept in git. Project defaults go in `sdkconfig.defaults`, and settings for one board only go in `sdkconfig.defaults.<target>`.
@@ -71,7 +70,7 @@ The buttons do nothing during normal use, so a stray press can't change anything
 | Action | What it does |
 |---|---|
 | Hold MENU (0.8 s) | Open the settings menu. A yellow bar at the top shows the item being edited and its value |
-| Press MENU | Go to the next item: Digits → Cards → Date → Brightness → Clock |
+| Press MENU | Go to the next item: Digits → Cards → Date → Brightness → Clock → Screen |
 | Press CHANGE | Step the value forwards. Changes show straight away |
 | Hold CHANGE | Step the value backwards |
 | Hold MENU again | Save and close. The menu also saves and closes after 10 seconds without a press |
@@ -81,6 +80,7 @@ The buttons do nothing during normal use, so a stray press can't change anything
 | Digits, Cards, Date | Any colour from the shared palette in `main/palette.c` |
 | Brightness | 10%, 25%, 50%, 75%, 100% |
 | Clock | 24 hour or 12 hour. 12-hour mode leaves the leading card blank and shows AM/PM |
+| Screen | Normal or Flipped. Flipped turns the picture 180°, for standing the board the other way up. The buttons keep their jobs, so MENU and CHANGE swap sides |
 
 Settings are stored in NVS under the `settings` namespace. Colours are saved by their id (for example `purple`), so adding or reordering colours in the palette never changes a saved choice.
 

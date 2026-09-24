@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "board.h" // DISPLAY_WIDTH, DISPLAY_HEIGHT
 
@@ -18,6 +19,9 @@ void display_init(int brightness);
 
 // Backlight brightness, 0-100 %
 void display_set_brightness(int percent);
+
+// Rotate the picture 180 degrees, for standing the board the other way up
+void display_set_flipped(bool flipped);
 
 // Drawing happens in an off-screen frame buffer; call display_flush() to show it
 void display_clear(uint16_t color);
