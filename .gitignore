@@ -1,0 +1,5 @@
+build/
+main/secrets.h
+sdkconfig.old
+.vscode/
+__pycache__/

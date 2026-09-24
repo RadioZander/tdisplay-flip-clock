@@ -1,0 +1,28 @@
+menu "NTP Clock Configuration"
+
+    config CLOCK_NTP_SERVER
+        string "NTP server"
+        default "pool.ntp.org"
+
+    config CLOCK_TIMEZONE
+        string "Timezone (POSIX TZ string)"
+        default "GMT0BST,M3.5.0/1,M10.5.0"
+        help
+            POSIX TZ string, including daylight saving rules. Examples:
+              UTC0
+              GMT0BST,M3.5.0/1,M10.5.0            (UK)
+              CET-1CEST,M3.5.0,M10.5.0/3          (Central Europe)
+              EST5EDT,M3.2.0,M11.1.0              (US Eastern)
+              PST8PDT,M3.2.0,M11.1.0              (US Pacific)
+              AEST-10AEDT,M10.1.0,M4.1.0/3        (Sydney)
+
+    config CLOCK_SECONDS_ON_HINGE
+        bool "Centre seconds cards on the hinge line"
+        default n
+        help
+            Enabled: the small seconds cards are centred vertically so their
+            hinge lines up with the hours and minutes.
+            Disabled: the seconds cards sit along the bottom edge of the
+            hours and minutes cards.
+
+endmenu
