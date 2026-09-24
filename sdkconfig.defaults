@@ -1,0 +1,2 @@
+# Settings shared by both boards. Board-specific settings are in
+# sdkconfig.defaults.<target>, which ESP-IDF loads on top of this file.

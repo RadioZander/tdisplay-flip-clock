@@ -1,6 +1,6 @@
-// Polled, debounced buttons. Both T-Display buttons have external pull-ups
-// and read low when pressed. GPIO35 is input-only with no internal pull-up.
+// Polled, debounced buttons. Both buttons read low when pressed.
 #include "buttons.h"
+#include "board.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
@@ -8,8 +8,8 @@
 #define DEBOUNCE_MS 30
 
 static const gpio_num_t pins[] = {
-    [BUTTON_MENU] = GPIO_NUM_0,
-    [BUTTON_CHANGE] = GPIO_NUM_35,
+    [BUTTON_MENU] = BOARD_PIN_BUTTON_MENU,
+    [BUTTON_CHANGE] = BOARD_PIN_BUTTON_CHANGE,
 };
 #define NUM_BUTTONS (sizeof(pins) / sizeof(pins[0]))
 
@@ -71,7 +71,7 @@ QueueHandle_t buttons_init(void)
 {
     gpio_config_t cfg = {
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_up_en = BOARD_BUTTON_PULLUP ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
     };
     for (int i = 0; i < NUM_BUTTONS; i++) {
         cfg.pin_bit_mask |= 1ULL << pins[i];

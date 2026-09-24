@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include "sdkconfig.h"
 #include "flip_clock.h"
-#include "flip_font.h"
+#include BOARD_FLIP_FONT
 #include "display.h"
 
 #define HINGE_COLOR       COLOR_BLACK
@@ -23,19 +23,37 @@ typedef struct {
     const flip_font_t *font;
 } card_pos_t;
 
-#define LARGE_Y FLIP_CLOCK_TOP
-#if CONFIG_CLOCK_SECONDS_ON_HINGE
-#define SMALL_Y (FLIP_CLOCK_TOP + (66 - 34) / 2) // hinges line up across all cards
-#else
-#define SMALL_Y (FLIP_CLOCK_BOTTOM - 34)         // bottom edges line up
-#endif
+// Cards are laid out left to right and centred on the screen
+#define CLOCK_WIDTH (4 * flip_font_large.width + 2 * BOARD_CARD_PAIR_GAP + BOARD_CARD_GROUP_GAP + \
+                     BOARD_SECONDS_GAP + 2 * flip_font_small.width + BOARD_SECONDS_PAIR_GAP)
 
 // HH MM in large cards, SS in small cards
-static const card_pos_t cards[6] = {
-    {1, LARGE_Y, &flip_font_large},    {46, LARGE_Y, &flip_font_large},
-    {98, LARGE_Y, &flip_font_large},   {143, LARGE_Y, &flip_font_large},
-    {193, SMALL_Y, &flip_font_small},  {217, SMALL_Y, &flip_font_small},
-};
+static card_pos_t cards[6];
+
+static void layout_cards(void)
+{
+    int large_h = flip_font_large.height;
+    int small_h = flip_font_small.height;
+#if CONFIG_CLOCK_SECONDS_ON_HINGE
+    int small_y = FLIP_CLOCK_TOP + (large_h - small_h) / 2; // hinges line up across all cards
+#else
+    int small_y = FLIP_CLOCK_TOP + large_h - small_h;       // bottom edges line up
+#endif
+    static const int gap_after[6] = {
+        BOARD_CARD_PAIR_GAP, BOARD_CARD_GROUP_GAP, BOARD_CARD_PAIR_GAP, BOARD_SECONDS_GAP, BOARD_SECONDS_PAIR_GAP, 0,
+    };
+    int x = (DISPLAY_WIDTH - CLOCK_WIDTH) / 2;
+    for (int i = 0; i < 6; i++) {
+        const flip_font_t *font = i < 4 ? &flip_font_large : &flip_font_small;
+        cards[i] = (card_pos_t){x, i < 4 ? FLIP_CLOCK_TOP : small_y, font};
+        x += font->width + gap_after[i];
+    }
+}
+
+int flip_clock_bottom(void)
+{
+    return FLIP_CLOCK_TOP + flip_font_large.height;
+}
 
 // Linear blend of two RGB565 colours, alpha 0..255
 static uint16_t blend(uint16_t bg, uint16_t fg, int alpha)
@@ -168,7 +186,7 @@ static void draw_am_pm(const struct tm *t)
     const char *text = t->tm_hour < 12 ? "AM" : "PM";
     int left = cards[4].x;
     int width = cards[5].x + flip_font_small.width - left;
-    int space = SMALL_Y - FLIP_CLOCK_TOP;
+    int space = cards[4].y - FLIP_CLOCK_TOP;
     int scale = space >= 24 ? 2 : 1;
     int x = left + (width - display_text_width(text, scale)) / 2;
     int y = FLIP_CLOCK_TOP + (space - 8 * scale) / 2;
@@ -177,6 +195,9 @@ static void draw_am_pm(const struct tm *t)
 
 void flip_clock_draw(const struct tm *from, const struct tm *to, float t)
 {
+    if (cards[0].font == NULL) {
+        layout_cards();
+    }
     int a[6], b[6];
     time_to_digits(from, a);
     time_to_digits(to, b);

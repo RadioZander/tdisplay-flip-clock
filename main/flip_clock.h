@@ -3,10 +3,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
+#include "board.h"
 
 // Vertical extent of the flip cards, for laying out text around them
-#define FLIP_CLOCK_TOP    32
-#define FLIP_CLOCK_BOTTOM (FLIP_CLOCK_TOP + 66)
+#define FLIP_CLOCK_TOP BOARD_CLOCK_TOP
+int flip_clock_bottom(void);
 
 // Draw HH MM SS as flip cards into the frame buffer.
 // Digits that differ between `from` and `to` are drawn mid-flip at progress

@@ -1,10 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-
-// Landscape orientation, USB connector on the right
-#define DISPLAY_WIDTH  240
-#define DISPLAY_HEIGHT 135
+#include "board.h" // DISPLAY_WIDTH, DISPLAY_HEIGHT
 
 // RGB565 colours
 #define RGB565(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))

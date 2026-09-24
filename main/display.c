@@ -1,36 +1,30 @@
-// Minimal ST7789 driver for the LilyGO T-Display (ESP32, 1.14" 135x240 IPS)
+// Minimal ST7789 driver for the LilyGO T-Display (SPI) and T-Display-S3 (8-bit i80)
+#include <math.h>
 #include <string.h>
 #include "display.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-#include "driver/spi_master.h"
+#include "esp_heap_caps.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_st7789.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h"
+#if BOARD_LCD_SPI
+#include "driver/spi_master.h"
+#define LCD_HOST SPI2_HOST
+#endif
 
 static const char *TAG = "display";
 
-// T-Display pin mapping
-#define LCD_HOST     SPI2_HOST
-#define PIN_MOSI     GPIO_NUM_19
-#define PIN_SCLK     GPIO_NUM_18
-#define PIN_CS       GPIO_NUM_5
-#define PIN_DC       GPIO_NUM_16
-#define PIN_RST      GPIO_NUM_23
-#define PIN_BL       GPIO_NUM_4
 #define BL_LEDC_MODE    LEDC_LOW_SPEED_MODE
 #define BL_LEDC_CHANNEL LEDC_CHANNEL_0
 #define BL_LEDC_TIMER   LEDC_TIMER_0
 #define BL_DUTY_BITS    LEDC_TIMER_10_BIT
 #define BL_DUTY_MAX     ((1 << 10) - 1)
-#define LCD_PCLK_HZ  (40 * 1000 * 1000)
-
-// The 135x240 glass sits inside the ST7789's 240x320 RAM, hence the offsets
-#define LCD_X_GAP    40
-#define LCD_Y_GAP    53
+#define BL_PULSE_STEPS  16 // AW9364 brightness levels
 
 #define FB_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(uint16_t))
 
@@ -38,7 +32,7 @@ static esp_lcd_panel_handle_t s_panel;
 static uint16_t *s_fb;
 static SemaphoreHandle_t s_flush_done;
 
-// Called from the SPI ISR once the whole frame has been sent
+// Called from the LCD ISR once the whole frame has been sent
 static bool on_flush_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t *edata, void *ctx)
 {
     BaseType_t woken = pdFALSE;
@@ -75,8 +69,13 @@ static const uint8_t font5x7[][5] = {
     {0x00, 0x00, 0x77, 0x00, 0x00}, {0x00, 0x41, 0x36, 0x08, 0x00}, {0x02, 0x01, 0x02, 0x04, 0x02},
 };
 
-void display_init(int brightness)
+static void backlight_init(void)
 {
+#if BOARD_BL_PULSE_DIMMING
+    gpio_config_t cfg = {.pin_bit_mask = 1ULL << BOARD_PIN_BL, .mode = GPIO_MODE_OUTPUT};
+    ESP_ERROR_CHECK(gpio_config(&cfg));
+    gpio_set_level(BOARD_PIN_BL, 0);
+#else
     // Backlight is PWM-dimmed; start dark until the first frame is drawn
     ledc_timer_config_t bl_timer = {
         .speed_mode = BL_LEDC_MODE,
@@ -87,17 +86,22 @@ void display_init(int brightness)
     };
     ESP_ERROR_CHECK(ledc_timer_config(&bl_timer));
     ledc_channel_config_t bl_channel = {
-        .gpio_num = PIN_BL,
+        .gpio_num = BOARD_PIN_BL,
         .speed_mode = BL_LEDC_MODE,
         .channel = BL_LEDC_CHANNEL,
         .timer_sel = BL_LEDC_TIMER,
         .duty = 0,
     };
     ESP_ERROR_CHECK(ledc_channel_config(&bl_channel));
+#endif
+}
 
+#if BOARD_LCD_SPI
+static esp_lcd_panel_io_handle_t panel_io_init(void)
+{
     spi_bus_config_t buscfg = {
-        .sclk_io_num = PIN_SCLK,
-        .mosi_io_num = PIN_MOSI,
+        .sclk_io_num = BOARD_PIN_SCLK,
+        .mosi_io_num = BOARD_PIN_MOSI,
         .miso_io_num = -1,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
@@ -105,24 +109,85 @@ void display_init(int brightness)
     };
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
-    s_flush_done = xSemaphoreCreateBinary();
-    assert(s_flush_done);
-
     esp_lcd_panel_io_handle_t io;
     esp_lcd_panel_io_spi_config_t io_cfg = {
-        .cs_gpio_num = PIN_CS,
-        .dc_gpio_num = PIN_DC,
+        .cs_gpio_num = BOARD_PIN_CS,
+        .dc_gpio_num = BOARD_PIN_DC,
         .spi_mode = 0,
-        .pclk_hz = LCD_PCLK_HZ,
+        .pclk_hz = BOARD_LCD_PCLK_HZ,
         .trans_queue_depth = 10,
         .on_color_trans_done = on_flush_done,
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &io_cfg, &io));
+    return io;
+}
+
+static uint16_t *framebuffer_alloc(esp_lcd_panel_io_handle_t io)
+{
+    return spi_bus_dma_memory_alloc(LCD_HOST, FB_SIZE, 0);
+}
+#elif BOARD_LCD_I80
+static esp_lcd_panel_io_handle_t panel_io_init(void)
+{
+    // Power the LCD (needed on battery) and hold the unused read strobe high
+    gpio_config_t cfg = {
+        .pin_bit_mask = (1ULL << BOARD_PIN_LCD_POWER) | (1ULL << BOARD_PIN_RD),
+        .mode = GPIO_MODE_OUTPUT,
+    };
+    ESP_ERROR_CHECK(gpio_config(&cfg));
+    gpio_set_level(BOARD_PIN_LCD_POWER, 1);
+    gpio_set_level(BOARD_PIN_RD, 1);
+
+    esp_lcd_i80_bus_handle_t bus;
+    esp_lcd_i80_bus_config_t bus_cfg = {
+        .dc_gpio_num = BOARD_PIN_DC,
+        .wr_gpio_num = BOARD_PIN_WR,
+        .clk_src = LCD_CLK_SRC_DEFAULT,
+        .data_gpio_nums = BOARD_PIN_DATA,
+        .bus_width = 8,
+        .max_transfer_bytes = FB_SIZE,
+        .dma_burst_size = 64,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_cfg, &bus));
+
+    esp_lcd_panel_io_handle_t io;
+    esp_lcd_panel_io_i80_config_t io_cfg = {
+        .cs_gpio_num = BOARD_PIN_CS,
+        .pclk_hz = BOARD_LCD_PCLK_HZ,
+        .trans_queue_depth = 10,
+        .on_color_trans_done = on_flush_done,
+        .dc_levels = {
+            .dc_idle_level = 0,
+            .dc_cmd_level = 0,
+            .dc_dummy_level = 0,
+            .dc_data_level = 1,
+        },
+        .lcd_cmd_bits = 8,
+        .lcd_param_bits = 8,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(bus, &io_cfg, &io));
+    return io;
+}
+
+static uint16_t *framebuffer_alloc(esp_lcd_panel_io_handle_t io)
+{
+    return esp_lcd_i80_alloc_draw_buffer(io, FB_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+}
+#endif
+
+void display_init(int brightness)
+{
+    backlight_init();
+
+    s_flush_done = xSemaphoreCreateBinary();
+    assert(s_flush_done);
+
+    esp_lcd_panel_io_handle_t io = panel_io_init();
 
     esp_lcd_panel_dev_config_t panel_cfg = {
-        .reset_gpio_num = PIN_RST,
+        .reset_gpio_num = BOARD_PIN_RST,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
         .data_endian = LCD_RGB_DATA_ENDIAN_LITTLE, // lets us write native uint16_t pixels
         .bits_per_pixel = 16,
@@ -133,17 +198,17 @@ void display_init(int brightness)
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel));
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(s_panel, true)); // IPS panel needs inversion
     ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(s_panel, true));      // landscape
-    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, true, false));
-    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(s_panel, LCD_X_GAP, LCD_Y_GAP));
+    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, BOARD_LCD_MIRROR_X, BOARD_LCD_MIRROR_Y));
+    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(s_panel, BOARD_LCD_X_GAP, BOARD_LCD_Y_GAP));
 
-    s_fb = spi_bus_dma_memory_alloc(LCD_HOST, FB_SIZE, 0);
+    s_fb = framebuffer_alloc(io);
     assert(s_fb);
     display_clear(COLOR_BLACK);
     display_flush();
 
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_panel, true));
     display_set_brightness(brightness);
-    ESP_LOGI(TAG, "ST7789 initialised");
+    ESP_LOGI(TAG, "ST7789 initialised (%s, %dx%d)", BOARD_NAME, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 }
 
 void display_fill_rect(int x, int y, int w, int h, uint16_t color)
@@ -206,10 +271,49 @@ void display_set_brightness(int percent)
     } else if (percent > 100) {
         percent = 100;
     }
+#if BOARD_BL_PULSE_DIMMING
+    // The AW9364 starts at full brightness when enabled, and each low pulse
+    // on its enable pin drops it one of 16 levels, wrapping back to full.
+    // Holding the pin low for over 2.5 ms turns it off.
+    static int s_level; // 0 = off, BL_PULSE_STEPS = full
+    int level = 0;
+    if (percent > 0) {
+        // Roughly even steps to the eye: 10% -> 1, 25% -> 2, 50% -> 6, 75% -> 10, 100% -> 16
+        level = (int)(BL_PULSE_STEPS * powf(percent / 100.0f, 1.5f) + 0.5f);
+        level = level < 1 ? 1 : level;
+    }
+    if (level == s_level) {
+        return;
+    }
+    if (level == 0) {
+        gpio_set_level(BOARD_PIN_BL, 0);
+        esp_rom_delay_us(3000);
+        s_level = 0;
+        return;
+    }
+    if (s_level == 0) {
+        gpio_set_level(BOARD_PIN_BL, 1);
+        esp_rom_delay_us(30);
+        s_level = BL_PULSE_STEPS;
+    }
+    int pulses = (s_level - level + BL_PULSE_STEPS) % BL_PULSE_STEPS;
+    // Keep the pulses short: a low longer than 2.5 ms would switch it off
+    static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+    portENTER_CRITICAL(&mux);
+    for (int i = 0; i < pulses; i++) {
+        gpio_set_level(BOARD_PIN_BL, 0);
+        esp_rom_delay_us(1);
+        gpio_set_level(BOARD_PIN_BL, 1);
+        esp_rom_delay_us(1);
+    }
+    portEXIT_CRITICAL(&mux);
+    s_level = level;
+#else
     // Square the level so equal steps look roughly equal to the eye
     uint32_t duty = BL_DUTY_MAX * percent * percent / 10000;
     ESP_ERROR_CHECK(ledc_set_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL, duty));
     ESP_ERROR_CHECK(ledc_update_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL));
+#endif
 }
 
 uint16_t *display_framebuffer(void)

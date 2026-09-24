@@ -1,5 +1,5 @@
-// NTP clock for the LilyGO T-Display: connects to WiFi, syncs time over SNTP
-// and shows it on the built-in ST7789 LCD.
+// NTP clock for the LilyGO T-Display and T-Display-S3: connects to WiFi, syncs
+// time over SNTP and shows it on the built-in ST7789 LCD.
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -220,18 +220,19 @@ static void draw_status_screen(int dots)
 {
     char buf[32];
     display_clear(COLOR_BLACK);
-    display_text_centered(20, "NTP Clock", 3, COLOR_CYAN);
+    // Positions as a fraction of the screen height, to suit either board
+    display_text_centered(DISPLAY_HEIGHT * 15 / 100, "NTP Clock", 3, COLOR_CYAN);
 
     const char *msg = s_wifi_connected ? "Syncing time" : "Connecting WiFi";
     snprintf(buf, sizeof(buf), "%s%.*s", msg, dots, "...");
-    display_text(12, 70, buf, 2, COLOR_WHITE);
+    display_text(12, DISPLAY_HEIGHT * 52 / 100, buf, 2, COLOR_WHITE);
 
     if (s_wifi_connected) {
         snprintf(buf, sizeof(buf), "IP %s", s_ip);
     } else {
         snprintf(buf, sizeof(buf), "SSID %s", WIFI_SSID);
     }
-    display_text_centered(110, buf, 1, COLOR_GREY);
+    display_text_centered(DISPLAY_HEIGHT * 82 / 100, buf, 1, COLOR_GREY);
     display_flush();
 }
 
@@ -258,7 +259,7 @@ static void draw_clock_screen(const struct tm *from, const struct tm *to, float 
     flip_clock_draw(from, to, t);
 
     strftime(buf, sizeof(buf), "%a %d %b %Y", to);
-    display_text_centered(FLIP_CLOCK_BOTTOM + 12, buf, 2, palette_get(s_settings.date_color)->rgb565);
+    display_text_centered(flip_clock_bottom() + 12, buf, BOARD_DATE_SCALE, palette_get(s_settings.date_color)->rgb565);
 
     display_flush();
 }
