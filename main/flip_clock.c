@@ -17,6 +17,7 @@
 
 static uint16_t s_digit_color, s_card_top, s_card_bottom, s_accent_color;
 static bool s_hour12;
+static bool s_seconds;
 
 typedef struct {
     int x, y;
@@ -24,11 +25,12 @@ typedef struct {
 } card_pos_t;
 
 // Cards are laid out left to right and centred on the screen
-#define CLOCK_WIDTH (4 * flip_font_large.width + 2 * BOARD_CARD_PAIR_GAP + BOARD_CARD_GROUP_GAP + \
-                     BOARD_SECONDS_GAP + 2 * flip_font_small.width + BOARD_SECONDS_PAIR_GAP)
+#define HH_MM_WIDTH (4 * flip_font_large.width + 2 * BOARD_CARD_PAIR_GAP + BOARD_CARD_GROUP_GAP)
+#define SS_WIDTH    (BOARD_SECONDS_GAP + 2 * flip_font_small.width + BOARD_SECONDS_PAIR_GAP)
 
 // HH MM in large cards, SS in small cards
 static card_pos_t cards[6];
+static int s_num_cards;
 
 static void layout_cards(void)
 {
@@ -42,8 +44,9 @@ static void layout_cards(void)
     static const int gap_after[6] = {
         BOARD_CARD_PAIR_GAP, BOARD_CARD_GROUP_GAP, BOARD_CARD_PAIR_GAP, BOARD_SECONDS_GAP, BOARD_SECONDS_PAIR_GAP, 0,
     };
-    int x = (DISPLAY_WIDTH - CLOCK_WIDTH) / 2;
-    for (int i = 0; i < 6; i++) {
+    s_num_cards = s_seconds ? 6 : 4;
+    int x = (DISPLAY_WIDTH - HH_MM_WIDTH - (s_seconds ? SS_WIDTH : 0)) / 2;
+    for (int i = 0; i < s_num_cards; i++) {
         const flip_font_t *font = i < 4 ? &flip_font_large : &flip_font_small;
         cards[i] = (card_pos_t){x, i < 4 ? FLIP_CLOCK_TOP : small_y, font};
         x += font->width + gap_after[i];
@@ -71,6 +74,8 @@ void flip_clock_set_style(const flip_clock_style_t *style)
     s_card_bottom = blend(COLOR_BLACK, style->card, 215); // lower half in shadow
     s_accent_color = style->accent;
     s_hour12 = style->hour12;
+    s_seconds = style->seconds;
+    layout_cards();
 }
 
 // Pixels to leave blank at each end of card row `cy` to round the corners
@@ -180,14 +185,27 @@ static void time_to_digits(const struct tm *t, int d[6])
     d[5] = t->tm_sec % 10;
 }
 
-// AM/PM in the space next to the hour/minute cards, above the seconds
+// AM/PM in the space next to the hour/minute cards: above the seconds, or
+// beside the top half of the minutes when the seconds are hidden
 static void draw_am_pm(const struct tm *t)
 {
     const char *text = t->tm_hour < 12 ? "AM" : "PM";
-    int left = cards[4].x;
-    int width = cards[5].x + flip_font_small.width - left;
-    int space = cards[4].y - FLIP_CLOCK_TOP;
+    int left, width, space;
+    if (s_seconds) {
+        left = cards[4].x;
+        width = cards[5].x + flip_font_small.width - left;
+        space = cards[4].y - FLIP_CLOCK_TOP;
+    } else {
+        left = cards[3].x + flip_font_large.width;
+        width = DISPLAY_WIDTH - left;
+        space = flip_font_large.height / 2;
+    }
+    // Large text only if it fits with a little room to spare on each side.
+    // Where "AM" won't fit large, shorten it to "A" rather than shrink it.
     int scale = space >= 24 ? 2 : 1;
+    if (width < display_text_width(text, scale) + 8) {
+        text = t->tm_hour < 12 ? "A" : "P";
+    }
     int x = left + (width - display_text_width(text, scale)) / 2;
     int y = FLIP_CLOCK_TOP + (space - 8 * scale) / 2;
     display_text(x, y, text, scale, s_accent_color);
@@ -195,13 +213,10 @@ static void draw_am_pm(const struct tm *t)
 
 void flip_clock_draw(const struct tm *from, const struct tm *to, float t)
 {
-    if (cards[0].font == NULL) {
-        layout_cards();
-    }
     int a[6], b[6];
     time_to_digits(from, a);
     time_to_digits(to, b);
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < s_num_cards; i++) {
         draw_card(&cards[i], a[i], b[i], t);
     }
     if (s_hour12) {

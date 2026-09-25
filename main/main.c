@@ -100,11 +100,12 @@ typedef enum {
     ITEM_DATE,
     ITEM_BRIGHTNESS,
     ITEM_CLOCK,
+    ITEM_SECONDS,
     ITEM_SCREEN,
     NUM_ITEMS,
 } menu_item_t;
 
-static const char *item_names[NUM_ITEMS] = {"Digits", "Cards", "Date", "Brightness", "Clock", "Screen"};
+static const char *item_names[NUM_ITEMS] = {"Digits", "Cards", "Date", "Brightness", "Clock", "Seconds", "Screen"};
 
 static bool s_menu_open;
 static menu_item_t s_menu_item;
@@ -117,6 +118,7 @@ static void apply_settings(void)
         .card = palette_get(s_settings.card_color)->rgb565,
         .accent = palette_get(s_settings.date_color)->rgb565,
         .hour12 = s_settings.hour12,
+        .seconds = s_settings.seconds,
     };
     flip_clock_set_style(&style);
     display_set_brightness(s_settings.brightness);
@@ -146,6 +148,9 @@ static void menu_step_value(int direction)
     case ITEM_CLOCK:
         s_settings.hour12 = !s_settings.hour12;
         break;
+    case ITEM_SECONDS:
+        s_settings.seconds = !s_settings.seconds;
+        break;
     case ITEM_SCREEN:
         s_settings.flipped = !s_settings.flipped;
         break;
@@ -172,6 +177,9 @@ static void menu_value_text(char *buf, size_t len)
         break;
     case ITEM_CLOCK:
         snprintf(buf, len, "%s", s_settings.hour12 ? "12 hour" : "24 hour");
+        break;
+    case ITEM_SECONDS:
+        snprintf(buf, len, "%s", s_settings.seconds ? "Shown" : "Hidden");
         break;
     case ITEM_SCREEN:
         snprintf(buf, len, "%s", s_settings.flipped ? "Flipped" : "Normal");
@@ -307,8 +315,11 @@ void app_main(void)
             last = now;
             struct tm next;
             localtime_r(&now, &next);
-            for (int f = 1; f <= FLIP_FRAMES; f++) {
-                draw_clock_screen(&shown, &next, (float)f / FLIP_FRAMES);
+            // Without seconds most ticks change no card, so just redraw once
+            bool flips = s_settings.seconds || next.tm_min != shown.tm_min || next.tm_hour != shown.tm_hour;
+            int frames = flips ? FLIP_FRAMES : 1;
+            for (int f = 1; f <= frames; f++) {
+                draw_clock_screen(&shown, &next, (float)f / frames);
                 vTaskDelay(pdMS_TO_TICKS(FLIP_FRAME_MS));
             }
             shown = next;

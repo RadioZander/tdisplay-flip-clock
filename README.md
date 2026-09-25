@@ -9,7 +9,7 @@ An NTP-synchronised clock for the LilyGO T-Display and T-Display-S3. It connects
 - Time from NTP (`pool.ntp.org` by default), re-synced every hour
 - Timezone with automatic daylight saving (UK time by default)
 - Flip cards with anti-aliased digits and a fold-down animation
-- On-device settings menu for the digit, card and date colours, brightness, 12/24-hour time and screen rotation. Settings are kept across power cycles
+- On-device settings menu for the digit, card and date colours, brightness, 12/24-hour time, seconds on or off and screen rotation. Settings are kept across power cycles
 - WiFi status and timezone (GMT/BST) along the top, date underneath
 
 ## Hardware
@@ -70,7 +70,7 @@ The buttons do nothing during normal use, so a stray press can't change anything
 | Action | What it does |
 |---|---|
 | Hold MENU (0.8 s) | Open the settings menu. A yellow bar at the top shows the item being edited and its value |
-| Press MENU | Go to the next item: Digits → Cards → Date → Brightness → Clock → Screen |
+| Press MENU | Go to the next item: Digits → Cards → Date → Brightness → Clock → Seconds → Screen |
 | Press CHANGE | Step the value forwards. Changes show straight away |
 | Hold CHANGE | Step the value backwards |
 | Hold MENU again | Save and close. The menu also saves and closes after 10 seconds without a press |
@@ -80,6 +80,7 @@ The buttons do nothing during normal use, so a stray press can't change anything
 | Digits, Cards, Date | Any colour from the shared palette in `main/palette.c` |
 | Brightness | 10%, 25%, 50%, 75%, 100% |
 | Clock | 24 hour or 12 hour. 12-hour mode leaves the leading card blank and shows AM/PM |
+| Seconds | Shown or Hidden. Hidden centres the hours and minutes, and in 12-hour mode moves AM/PM beside the minutes (shortened to A/P on the T-Display) |
 | Screen | Normal or Flipped. Flipped turns the picture 180°, for standing the board the other way up. The buttons keep their jobs, so MENU and CHANGE swap sides |
 
 Settings are stored in NVS under the `settings` namespace. Colours are saved by their id (for example `purple`), so adding or reordering colours in the palette never changes a saved choice.
