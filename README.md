@@ -144,5 +144,7 @@ This project is released under the [MIT Licence](LICENSE).
 
 It includes material from other projects under their own licences:
 
-- **5×7 text font** in `main/display.c`: from the [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) (`glcdfont.c`), Copyright (c) 2012 Adafruit Industries, BSD licence.
-- **Flip card digits** in `main/flip_font_*.h`: rendered from DejaVu Sans Condensed Bold. [DejaVu fonts](https://dejavu-fonts.github.io/) are based on Bitstream Vera, Copyright (c) 2003 Bitstream, Inc., and are distributed under the Bitstream Vera Fonts licence.
+- **5×7 text font** in `main/display.c`: from the [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library) (`glcdfont.c`), Copyright (c) 2012 Adafruit Industries, BSD licence. The full licence is in [LICENSES/Adafruit-GFX.txt](LICENSES/Adafruit-GFX.txt).
+- **Flip card digits** in `main/flip_font_*.h`: rendered from DejaVu Sans Condensed Bold. [DejaVu fonts](https://dejavu-fonts.github.io/) are based on Bitstream Vera, Copyright (c) 2003 Bitstream, Inc., and are distributed under the Bitstream Vera Fonts licence. The full licence is in [LICENSES/DejaVu-Fonts.txt](LICENSES/DejaVu-Fonts.txt).
+
+The built firmware also contains ESP-IDF and the libraries that come with it (such as FreeRTOS, lwIP and Mbed TLS), each under its own licence. If you hand out flashed devices, include the notices listed on Espressif's [Copyrights and Licenses](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/COPYRIGHT.html) page.
